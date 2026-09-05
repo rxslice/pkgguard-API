@@ -141,7 +141,7 @@ positives at the cost of recall is not an improvement — report both or neither
 ## Installation
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/pkgguard.git
+git clone https://github.com/rxslice/pkgguard.git
 cd pkgguard
 pip install -e .
 ```

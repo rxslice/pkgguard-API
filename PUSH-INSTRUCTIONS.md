@@ -16,26 +16,12 @@ Go to https://github.com/new
 
 ```bash
 cd pkgguard
-git remote add origin https://github.com/YOUR-USERNAME/pkgguard.git
+git remote add origin https://github.com/rxslice/pkgguard.git
 git branch -M main
 git push -u origin main
 ```
 
-## 3. Replace the placeholder URLs
-
-Two files contain `YOUR-USERNAME`. Fix them after you know your repo URL:
-
-```bash
-grep -rn "YOUR-USERNAME" README.md pyproject.toml
-```
-
-Then:
-
-```bash
-git add -A && git commit -m "docs: set repository URLs" && git push
-```
-
-## 4. Set repo topics (this is the SEO step that matters most on GitHub)
+## 3. Set repo topics (this is the SEO step that matters most on GitHub)
 
 GitHub topics drive in-platform discovery. In the repo, click the gear icon
 next to "About" and add:
@@ -48,7 +34,7 @@ dependency-confusion  security-tools  cicd  python
 
 Also set the **About** description and the website field to `https://blvkware.dev`.
 
-## 5. Optional but high-leverage
+## 4. Optional but high-leverage
 
 - Enable **Discussions** — the FAQ in the README seeds real questions.
 - Add a **release** tagged `v0.1.0` so the repo shows a version.

@@ -27,8 +27,8 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://blvkware.dev"
-Source = "https://github.com/YOUR-USERNAME/pkgguard"
-Issues = "https://github.com/YOUR-USERNAME/pkgguard/issues"
+Source = "https://github.com/rxslice/pkgguard"
+Issues = "https://github.com/rxslice/pkgguard/issues"
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.0"]
