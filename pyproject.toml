@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pkgguard"
+version = "0.1.0"
+description = "Detect slopsquatting and AI-hallucinated package names before install. npm, PyPI, crates.io. Built by Blvkware."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "BUSL-1.1" }
+authors = [{ name = "Blvkware", email = "hello@blvkware.dev" }]
+keywords = [
+    "slopsquatting", "supply-chain-security", "package-hallucination",
+    "typosquatting", "dependency-confusion", "llm-security", "ai-security",
+    "npm", "pypi", "crates-io", "sbom", "devsecops", "ci-cd-security",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+    "Programming Language :: Python :: 3",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://blvkware.dev"
+Source = "https://github.com/YOUR-USERNAME/pkgguard"
+Issues = "https://github.com/YOUR-USERNAME/pkgguard/issues"
+
+[project.optional-dependencies]
+api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.0"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+pkgguard = "pkgguard.cli:main"
+
+[tool.setuptools]
+packages = ["pkgguard"]
+
+[tool.setuptools.package-data]
+pkgguard = ["../data/*.json"]

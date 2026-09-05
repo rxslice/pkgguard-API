@@ -1,0 +1,20 @@
+{
+  "_provenance": {
+    "note": "Names documented in public security research and incident reports as having been invented by code-generating LLMs. Each entry should have a citable source. This list is intentionally small and evidence-based rather than speculative — do not pad it with guesses.",
+    "sources": [
+      "Spracklen et al., 'We Have a Package for You! A Comprehensive Analysis of Package Hallucinations by Code Generating LLMs' (arXiv:2406.10279)",
+      "Cloud Security Alliance research note on slopsquatting (April 2026)",
+      "Aikido Security, 'Slopsquatting: The AI Package Hallucination Attack Already Happening' (Feb 2026)",
+      "Lasso Security / Bar Lanyado, huggingface-cli disclosure"
+    ],
+    "last_updated": "2026-09-05"
+  },
+  "npm": [
+    "react-codeshift",
+    "unused-imports"
+  ],
+  "pypi": [
+    "huggingface-cli"
+  ],
+  "crates": []
+}
