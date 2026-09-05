@@ -1,0 +1,9 @@
+﻿# Normalize line endings so the repo is consistent across Windows/Linux/macOS.
+* text=auto eol=lf
+
+# Data corpora are generated JSON - keep them out of language stats.
+data/*.json linguist-generated=true
+
+*.png binary
+*.jpg binary
+*.zip binary
