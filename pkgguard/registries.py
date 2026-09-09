@@ -27,6 +27,8 @@ USER_AGENT = "pkgguard/0.1 (+https://github.com/rxslice/pkgguard-API)"
 TIMEOUT = 10
 RETRIES = 2
 CACHE_TTL = 300
+PYPI_STATS_CIRCUIT_SECONDS = 300
+_pypi_stats_blocked_until = 0.0
 
 
 @dataclass
@@ -42,6 +44,11 @@ class PackageFacts:
     repository: Optional[str] = None
     maintainer_count: Optional[int] = None
     fetch_error: Optional[str] = None
+    download_stats_error: Optional[str] = None
+
+
+class RateLimitedError(RuntimeError):
+    """A registry explicitly rejected the request due to rate limiting."""
 
 
 def _cache_path(url: str) -> str:
@@ -53,7 +60,12 @@ def _cache_path(url: str) -> str:
     return os.path.join(root, hashlib.sha256(url.encode("utf-8")).hexdigest() + ".json")
 
 
-def _get_json(url: str) -> Optional[dict]:
+def _get_json(
+    url: str,
+    *,
+    retry_rate_limit: bool = True,
+    cache_rate_limit: bool = False,
+) -> Optional[dict]:
     try:
         cache = _cache_path(url)
     except OSError:
@@ -61,7 +73,10 @@ def _get_json(url: str) -> Optional[dict]:
     try:
         if cache and time.time() - os.path.getmtime(cache) <= CACHE_TTL:
             with open(cache, encoding="utf-8") as stream:
-                return json.load(stream)
+                cached = json.load(stream)
+            if isinstance(cached, dict) and cached.get("__pkgguard_rate_limited__"):
+                raise RateLimitedError(f"{url} rate limit is cached")
+            return cached
     except (OSError, ValueError):
         pass
 
@@ -83,6 +98,14 @@ def _get_json(url: str) -> Optional[dict]:
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 return None
+            if error.code == 429 and not retry_rate_limit:
+                if cache_rate_limit and cache:
+                    try:
+                        with open(cache, "w", encoding="utf-8") as stream:
+                            json.dump({"__pkgguard_rate_limited__": True}, stream)
+                    except OSError:
+                        pass
+                raise RateLimitedError(f"{url} returned HTTP 429")
             last_error = error
         except Exception as error:
             last_error = error
@@ -176,11 +199,19 @@ def fetch_pypi(name: str) -> PackageFacts:
         created = min(times)
 
     downloads = None
+    download_stats_error = None
+    global _pypi_stats_blocked_until
     try:
-        stats = _get_json(f"https://pypistats.org/api/packages/{safe}/recent")
+        stats_url = f"https://pypistats.org/api/packages/{safe}/recent"
+        if time.monotonic() < _pypi_stats_blocked_until:
+            raise RateLimitedError("pypistats circuit breaker is open")
+        stats = _get_json(stats_url, retry_rate_limit=False, cache_rate_limit=True)
         downloads = (stats or {}).get("data", {}).get("last_month")
-    except Exception:
-        pass
+    except RateLimitedError as error:
+        _pypi_stats_blocked_until = time.monotonic() + PYPI_STATS_CIRCUIT_SECONDS
+        download_stats_error = str(error)
+    except (OSError, urllib.error.URLError, ValueError) as error:
+        download_stats_error = f"download statistics unavailable: {error}"
 
     return PackageFacts(
         name=name,
@@ -190,6 +221,7 @@ def fetch_pypi(name: str) -> PackageFacts:
         age_days=_age_days(created),
         version_count=len(releases),
         monthly_downloads=downloads,
+        download_stats_error=download_stats_error,
         description=(info.get("summary") or None),
         repository=(info.get("project_urls") or {}).get("Source") or info.get("home_page"),
         maintainer_count=None,

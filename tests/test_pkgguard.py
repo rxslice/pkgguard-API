@@ -264,6 +264,28 @@ def test_registry_json_retries_and_uses_short_cache(monkeypatch, tmp_path):
     assert calls["count"] == 2
 
 
+def test_pypi_stats_rate_limit_opens_circuit(monkeypatch, tmp_path):
+    import pkgguard.registries as registries
+    from urllib.error import HTTPError
+
+    monkeypatch.setenv("PKGGUARD_CACHE_DIR", str(tmp_path))
+    registries._pypi_stats_blocked_until = 0
+    calls = {"stats": 0}
+
+    def fake_get(url, **kwargs):
+        if "pypistats.org" in url:
+            calls["stats"] += 1
+            raise registries.RateLimitedError("HTTP 429")
+        return {"info": {}, "releases": {}}
+
+    monkeypatch.setattr(registries, "_get_json", fake_get)
+    first = registries.fetch_pypi("example")
+    second = registries.fetch_pypi("example-two")
+    assert first.download_stats_error == "HTTP 429"
+    assert second.download_stats_error == "pypistats circuit breaker is open"
+    assert calls["stats"] == 1
+
+
 def test_authorize_cli_fails_closed_for_review(monkeypatch, capsys):
     monkeypatch.setattr(
         "pkgguard.cli.authorize_command",

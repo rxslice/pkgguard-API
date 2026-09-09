@@ -324,6 +324,13 @@ def assess(
         score += 10
         signals.append("No source repository linked in the registry metadata.")
 
+    if facts.download_stats_error:
+        score += 15
+        signals.append(
+            "Download statistics were unavailable; adoption-ratio checks could not "
+            f"be completed ({facts.download_stats_error})."
+        )
+
     score = min(score, 100)
 
     if score >= 60:
@@ -377,6 +384,7 @@ def assess(
             "monthly_downloads": facts.monthly_downloads,
             "repository": facts.repository,
             "description": facts.description,
+            "download_stats_error": facts.download_stats_error,
         },
         conflation=conf.__dict__ if conf.is_conflation else None,
         typosquat=typo.__dict__ if typo.is_typosquat else None,

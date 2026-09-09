@@ -15,9 +15,11 @@ _INSTALL_PATTERNS = [
 ]
 _FLAG = re.compile(r"^-")
 _KNOWN_FLAGS = {
-    "--audit", "--exact", "--global", "--legacy-peer-deps", "--no-audit",
-    "--no-fund", "--no-save", "--save", "--save-dev", "--save-exact",
-    "--upgrade", "--user", "--verbose", "-D", "-E", "-U", "-d", "-q",
+    "--audit", "--dev", "--exact", "--global", "--global-style",
+    "--legacy-peer-deps", "--no-audit", "--no-cache-dir", "--no-fund",
+    "--no-optional", "--no-save", "--prefer-offline", "--production",
+    "--save", "--save-dev", "--save-exact", "--upgrade", "--user",
+    "--verbose", "-D", "-E", "-U", "-d", "-g", "-q",
 }
 
 
@@ -30,6 +32,8 @@ def has_unsupported_flag(cmd: str) -> bool:
     for token in tokens:
         normalized = token.lower()
         if normalized.startswith("-") and normalized not in _KNOWN_FLAGS:
+            if normalized.startswith("--omit="):
+                continue
             return True
     return False
 
