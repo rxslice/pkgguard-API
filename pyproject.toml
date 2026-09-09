@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pkgguard"
 version = "0.1.0"
-description = "Detect slopsquatting and AI-hallucinated package names before install. npm, PyPI, crates.io. Built by Blvkware."
+description = "Open-source AI package security gate for slopsquatting, hallucinated dependencies, and typosquats across npm, PyPI, and crates.io."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "BUSL-1.1" }
+license = { file = "LICENSE" }
 authors = [{ name = "Blvkware", email = "hello@blvkware.dev" }]
 keywords = [
     "slopsquatting", "supply-chain-security", "package-hallucination",
@@ -27,8 +27,8 @@ dependencies = []
 
 [project.urls]
 Homepage = "https://blvkware.dev"
-Source = "https://github.com/rxslice/pkgguard"
-Issues = "https://github.com/rxslice/pkgguard/issues"
+Source = "https://github.com/rxslice/pkgguard-API"
+Issues = "https://github.com/rxslice/pkgguard-API/issues"
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.0"]
@@ -36,6 +36,17 @@ dev = ["pytest>=8.0"]
 
 [project.scripts]
 pkgguard = "pkgguard.cli:main"
+pkgguard-mcp = "pkgguard.mcp_server:main"
+pkgguard-gate = "pkgguard.toolgate:main"
+pkgguard-npm = "pkgguard.toolgate:main_npm"
+pkgguard-yarn = "pkgguard.toolgate:main_yarn"
+pkgguard-pnpm = "pkgguard.toolgate:main_pnpm"
+pkgguard-bun = "pkgguard.toolgate:main_bun"
+pkgguard-pip = "pkgguard.toolgate:main_pip"
+pkgguard-pip3 = "pkgguard.toolgate:main_pip3"
+pkgguard-uv = "pkgguard.toolgate:main_uv"
+pkgguard-poetry = "pkgguard.toolgate:main_poetry"
+pkgguard-cargo = "pkgguard.toolgate:main_cargo"
 
 [tool.setuptools]
 packages = ["pkgguard"]

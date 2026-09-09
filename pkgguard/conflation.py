@@ -1,6 +1,6 @@
 """
 pkgguard — built by Blvkware (https://blvkware.dev)
-Licensed under the Business Source License 1.1. See LICENSE.
+Licensed under the Apache License 2.0. See LICENSE.
 Conflation detection.
 
 This is the piece that existing tooling does not do.

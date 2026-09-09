@@ -1,0 +1,58 @@
+name: pkgguard scan
+description: Scan a dependency manifest and publish pkgguard findings as SARIF
+inputs:
+  manifest:
+    description: Path to package.json, requirements.txt, or Cargo.toml
+    required: true
+  allow-review:
+    description: Do not fail for REVIEW findings; BLOCK findings still fail
+    required: false
+    default: "false"
+  new-package-policy:
+    description: Policy for very new packages; one of block or review
+    required: false
+    default: "block"
+outputs:
+  blocked:
+    description: Number of blocked packages
+    value: ${{ steps.scan.outputs.blocked }}
+  review:
+    description: Number of packages requiring review
+    value: ${{ steps.scan.outputs.review }}
+runs:
+  using: composite
+  steps:
+    - name: Install pkgguard
+      shell: bash
+      run: python -m pip install -e .
+    - name: Scan manifest
+      id: scan
+      shell: bash
+      env:
+        PKGGUARD_MANIFEST: ${{ inputs.manifest }}
+        PKGGUARD_ALLOW_REVIEW: ${{ inputs.allow-review }}
+        PKGGUARD_NEW_PACKAGE_POLICY: ${{ inputs.new-package-policy }}
+      run: |
+        set +e
+        pkgguard --sarif scan-manifest "$PKGGUARD_MANIFEST" \
+          $([ "$PKGGUARD_ALLOW_REVIEW" = "true" ] && echo --allow-review) \
+          --new-package-policy "$PKGGUARD_NEW_PACKAGE_POLICY" \
+          > pkgguard.sarif
+        status=$?
+        python - <<'PY'
+        import json
+        import os
+        data = json.load(open("pkgguard.sarif", encoding="utf-8"))
+        results = data["runs"][0]["results"]
+        blocked = sum(r["level"] == "error" for r in results)
+        review = sum(r["level"] == "warning" for r in results)
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+            output.write(f"blocked={blocked}\nreview={review}\n")
+        PY
+        echo "pkgguard SARIF written to pkgguard.sarif"
+        exit "$status"
+    - name: Upload pkgguard results
+      if: always()
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: pkgguard.sarif

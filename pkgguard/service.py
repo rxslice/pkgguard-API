@@ -1,6 +1,6 @@
 """
 pkgguard — built by Blvkware (https://blvkware.dev)
-Licensed under the Business Source License 1.1. See LICENSE.
+Licensed under the Apache License 2.0. See LICENSE.
 Corpus loading and the shared service used by both the HTTP API and the CLI.
 """
 from __future__ import annotations
@@ -53,7 +53,11 @@ def load_known_hallucinations() -> Dict[str, Set[str]]:
         return {}
     with open(path, encoding="utf-8") as f:
         raw = json.load(f)
-    return {eco: {n.lower() for n in names} for eco, names in raw.items()}
+    return {
+        eco: {name.lower() for name in names}
+        for eco, names in raw.items()
+        if eco in SUPPORTED_ECOSYSTEMS and isinstance(names, list)
+    }
 
 
 @lru_cache(maxsize=2048)
@@ -66,7 +70,11 @@ def _downloads_for(ecosystem: str, name: str) -> Optional[int]:
         return None
 
 
-def verify_package(name: str, ecosystem: str) -> Assessment:
+def verify_package(
+    name: str,
+    ecosystem: str,
+    new_package_policy: str = "block",
+) -> Assessment:
     eco = ecosystem.lower().strip()
     if eco not in SUPPORTED_ECOSYSTEMS:
         raise ValueError(f"Unsupported ecosystem '{ecosystem}'. Supported: {list(SUPPORTED_ECOSYSTEMS)}")
@@ -82,8 +90,13 @@ def verify_package(name: str, ecosystem: str) -> Assessment:
         popular,
         known,
         popularity_lookup=lambda pkg: _downloads_for(eco, pkg),
+        new_package_policy=new_package_policy,
     )
 
 
-def verify_many(names: Sequence[str], ecosystem: str) -> List[Assessment]:
-    return [verify_package(n, ecosystem) for n in names]
+def verify_many(
+    names: Sequence[str],
+    ecosystem: str,
+    new_package_policy: str = "block",
+) -> List[Assessment]:
+    return [verify_package(n, ecosystem, new_package_policy) for n in names]

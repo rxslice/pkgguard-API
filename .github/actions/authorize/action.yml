@@ -1,0 +1,49 @@
+name: pkgguard authorize
+description: Authorize an agent-generated package install command
+inputs:
+  command:
+    description: The package-manager command to authorize
+    required: true
+  allow-review:
+    description: Allow REVIEW decisions after a separate approval step
+    required: false
+    default: "false"
+  new-package-policy:
+    description: Policy for very new packages; one of block, review, allow
+    required: false
+    default: "block"
+outputs:
+  decision:
+    description: ALLOW, REVIEW, or BLOCK
+    value: ${{ steps.authorize.outputs.decision }}
+  safe-to-execute:
+    description: Whether the command passed the configured gate
+    value: ${{ steps.authorize.outputs.safe_to_execute }}
+runs:
+  using: composite
+  steps:
+    - name: Install pkgguard
+      shell: bash
+      run: python -m pip install -e .
+    - name: Authorize command
+      id: authorize
+      shell: bash
+      env:
+        PKGGUARD_COMMAND: ${{ inputs.command }}
+        PKGGUARD_ALLOW_REVIEW: ${{ inputs.allow-review }}
+        PKGGUARD_NEW_PACKAGE_POLICY: ${{ inputs.new-package-policy }}
+      run: |
+        set +e
+        pkgguard --json authorize "$PKGGUARD_COMMAND" \
+          $([ "$PKGGUARD_ALLOW_REVIEW" = "true" ] && echo --allow-review) \
+          --new-package-policy "$PKGGUARD_NEW_PACKAGE_POLICY" \
+          | tee pkgguard-decision.json
+        status=${PIPESTATUS[0]}
+        decision=$(python -c "import json; print(json.load(open('pkgguard-decision.json'))['decision'])")
+        safe=$(python -c "import json, os; d=json.load(open('pkgguard-decision.json')); print(str(d['safe_to_execute']).lower())")
+        echo "decision=$decision" >> "$GITHUB_OUTPUT"
+        echo "safe_to_execute=$safe" >> "$GITHUB_OUTPUT"
+        if [ "$PKGGUARD_ALLOW_REVIEW" = "true" ] && [ "$decision" = "REVIEW" ]; then
+          exit 0
+        fi
+        exit "$status"

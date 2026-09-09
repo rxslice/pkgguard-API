@@ -1,10 +1,10 @@
-# pkgguard — Detect Slopsquatting and AI-Hallucinated Packages Before Install
+# pkgguard — Open-Source AI Package Security Gate
 
 **Built by [Blvkware](https://blvkware.dev)**
 
-[![License: BSL 1.1](https://img.shields.io/badge/license-BSL%201.1-blue.svg)](./LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-25%20passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen.svg)](./tests)
 [![False positives](https://img.shields.io/badge/false%20positives-1.0%25-brightgreen.svg)](#how-accurate-is-pkgguard)
 
 **pkgguard is an open-source security tool and API that verifies npm, PyPI, and
@@ -14,6 +14,18 @@ conflation attack pattern — where an AI blends two real package names into a
 third that never existed — which typosquatting scanners structurally cannot
 catch. Measured at **1.0% false positives with 7/7 threat recall** against live
 registry data.
+
+**In one sentence:** pkgguard is a pre-install AI supply-chain security gate
+that blocks hallucinated, slopsquatted, and suspicious package names before
+npm, pip, uv, or cargo executes them.
+
+**Who is it for?** Security teams, platform engineers, DevSecOps teams, and
+developers using GitHub Actions or autonomous coding agents that need
+explainable package-install decisions without replacing their package manager.
+
+**What does it replace?** Nothing. pkgguard complements software composition
+analysis and malware scanners by checking package identity and reputation before
+installation, including names that are not simple misspellings.
 
 ```bash
 pip install -e . && pkgguard check -e npm react-codeshift
@@ -30,6 +42,7 @@ pip install -e . && pkgguard check -e npm react-codeshift
 - [How accurate is pkgguard?](#how-accurate-is-pkgguard)
 - [Installation](#installation)
 - [Usage](#usage)
+- [CI adoption](#ci-adoption)
 - [How the risk scoring works](#how-does-the-risk-scoring-work)
 - [FAQ](#frequently-asked-questions)
 - [Limitations](#limitations)
@@ -141,7 +154,7 @@ positives at the cost of recall is not an improvement — report both or neither
 ## Installation
 
 ```bash
-git clone https://github.com/rxslice/pkgguard.git
+git clone https://github.com/rxslice/pkgguard-API.git
 cd pkgguard
 pip install -e .
 ```
@@ -207,6 +220,88 @@ curl -X POST http://127.0.0.1:8000/v1/verify \
 
 Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
 
+### Agent command authorization
+
+The agent gateway authorizes an install command before it is executed. It
+returns `ALLOW`, `REVIEW`, or `BLOCK`; unknown command types fail toward
+`REVIEW` instead of being treated as safe.
+
+```bash
+pkgguard authorize "npm install react-codeshift lodash"
+```
+
+`authorize` fails closed for `REVIEW` as well as `BLOCK`, which is the safe
+default for autonomous agents. If your workflow has a separate approval step,
+you can explicitly use `pkgguard authorize --allow-review ...`.
+
+Very new existing packages are `BLOCK`ed by default. For teams that want a
+human approval queue instead of a hard stop, use
+`--new-package-policy review`; known hallucinations and confirmed typosquats
+remain `BLOCK`ed.
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/agent/authorize \
+  -H "Content-Type: application/json" \
+  -d '{"command":"npm install react-codeshift lodash"}'
+```
+
+Use `safe_to_execute` as the enforcement decision in an agent wrapper. This
+MVP intentionally authorizes package-manager commands only; shell commands
+outside the supported install patterns require human review.
+Compound commands, shell interpolation, redirection, pipelines, and command
+chaining also fail toward `REVIEW` rather than being partially parsed.
+
+The API accepts `"allow_review": true` only when a separate approval step has
+already occurred for a recognized package-manager command. It never overrides
+`BLOCK` or authorizes unknown/compound shell commands.
+Set `"new_package_policy": "review"` to route ordinary very new packages to
+human review rather than hard-blocking them.
+
+#### MCP / agent runtime integration
+
+For agent toolchains that expect a standard JSON-RPC tool interface, install the
+MCP entry point and expose it over stdio:
+
+```bash
+pip install -e .
+pkgguard-mcp
+```
+
+The server exposes a single tool: `authorize_install_command`. It accepts a
+`command`, optional `allow_review`, and optional `new_package_policy`, and
+returns `decision`, `safe_to_execute`, `ecosystem`, `packages`, and the
+assessment payload. This makes the same guardrail usable from a hosted agent,
+a local MCP host, or a custom tool wrapper without rewriting policy logic.
+
+For a more direct pre-tool-use pattern, wrap the package-manager command itself:
+
+```bash
+pkgguard-gate -- npm install react-codeshift
+```
+
+This is the shell-friendly equivalent of a pre-execution enforcement hook: it
+authorizes the package-manager command before execution, exits nonzero on
+`REVIEW`/`BLOCK`, and otherwise runs the real install command unchanged.
+
+#### GitHub Actions
+
+For agent workflows running in GitHub Actions, use the composite action:
+
+```yaml
+- name: Authorize agent install
+  id: pkgguard
+  uses: ./.github/actions/authorize
+  with:
+    command: npm install react-codeshift lodash
+
+- name: Install approved dependencies
+  if: steps.pkgguard.outputs.safe-to-execute == 'true'
+  run: npm install react-codeshift lodash
+```
+
+The action fails the job for `BLOCK` and `REVIEW` by default and publishes
+`decision` and `safe-to-execute` outputs for downstream approval workflows.
+
 **Endpoints**
 
 | Method | Path | Purpose |
@@ -214,6 +309,7 @@ Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
 | `GET` | `/v1/health` | Liveness + supported ecosystems |
 | `GET` | `/v1/verify/{ecosystem}/{name}` | Verify one package |
 | `POST` | `/v1/verify` | Verify a batch (up to 100) |
+| `POST` | `/v1/agent/authorize` | Authorize an agent-generated install command |
 
 ### GitHub Action
 
@@ -224,6 +320,40 @@ Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
   run: pip install -e .
 - name: Verify npm dependencies
   run: pkgguard scan-manifest package.json
+```
+
+### CI adoption
+
+The lowest-friction adoption path is a manifest scan. It requires no agent
+integration and publishes findings directly to GitHub Code Scanning:
+
+```yaml
+name: Dependency safety
+on: [push, pull_request]
+permissions:
+  security-events: write
+  contents: read
+
+jobs:
+  pkgguard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rxslice/pkgguard/.github/actions/scan@main
+        with:
+          manifest: package.json
+```
+
+The Action fails on `BLOCK` and `REVIEW` by default. Set
+`allow-review: "true"` only when your workflow has a separate human approval
+step; confirmed blocks still fail. It accepts `package.json`,
+`requirements.txt`, and `Cargo.toml`, emits standard SARIF, and exposes
+`blocked` and `review` outputs for policy checks.
+
+For local or non-GitHub CI, use the equivalent command:
+
+```bash
+pkgguard --sarif scan-manifest package.json > pkgguard.sarif
 ```
 
 ## How does the risk scoring work?
@@ -298,12 +428,11 @@ blends common tokens looks structurally similar to a slopsquat. That is the
 intended trade-off, not a bug. Established packages with real release history
 are not flagged.
 
-### Is it free to use commercially?
+### Is pkgguard free to use commercially?
 
-Yes, for internal use — including inside for-profit companies, in your CI/CD, and
-in internal developer platforms. A commercial license is required only to resell
-it, host it as a service, or embed it in a product you sell. See
-[COMMERCIAL-LICENSE.md](./COMMERCIAL-LICENSE.md).
+Yes. pkgguard is released under Apache License 2.0, including for commercial
+CI/CD, internal developer platforms, hosted services, and products. Review the
+[LICENSE](./LICENSE) for the complete terms.
 
 ### How is this different from Socket, Snyk, or Aikido?
 
@@ -335,11 +464,30 @@ dependency confusion · AI coding agent security · package name verification AP
 · software supply chain attack prevention · conflation detection · CI/CD
 dependency gate
 
+## Common questions
+
+### What is the best way to add pkgguard to CI?
+
+Use the reusable GitHub Action under `.github/actions/scan`, or run
+`pkgguard --sarif scan-manifest package.json` in any CI system. SARIF findings
+can be uploaded to GitHub Code Scanning.
+
+### Does pkgguard block normal package installs?
+
+No. It runs before the package manager and returns `ALLOW`, `REVIEW`, or
+`BLOCK`. Established packages normally pass; suspicious or unknown packages
+are explained and fail closed.
+
+### Does pkgguard replace Snyk, Socket, or dependency scanners?
+
+No. It protects the pre-install identity decision, while SCA and malware tools
+analyze dependencies and behavior after resolution. The controls are
+complementary.
+
 ## License
 
-**Business Source License 1.1** — free for internal and CI use, including at
-commercial companies. A [commercial license](./COMMERCIAL-LICENSE.md) is
-required to resell, host, or embed it. Converts to Apache 2.0 on 2030-09-05.
+pkgguard is released under the **Apache License 2.0**, a permissive,
+commercially friendly open-source license with an explicit patent grant.
 
 ---
 

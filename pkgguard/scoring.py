@@ -1,6 +1,6 @@
 """
 pkgguard — built by Blvkware (https://blvkware.dev)
-Licensed under the Business Source License 1.1. See LICENSE.
+Licensed under the Apache License 2.0. See LICENSE.
 Risk scoring: combine registry facts, conflation analysis, and typosquat
 distance into a single actionable verdict.
 
@@ -31,6 +31,7 @@ ALLOW = "ALLOW"
 NEW_PACKAGE_DAYS = 120
 VERY_NEW_PACKAGE_DAYS = 30
 LOW_DOWNLOADS = 1000
+NEW_PACKAGE_POLICIES = ("block", "review")
 
 
 def levenshtein(a: str, b: str) -> int:
@@ -166,14 +167,22 @@ def assess(
     popular: Sequence[str],
     known_hallucinations: Optional[set] = None,
     popularity_lookup: Optional[Callable[[str], Optional[int]]] = None,
+    new_package_policy: str = "block",
 ) -> Assessment:
     """Score a package.
 
     `popularity_lookup` maps a package name to its monthly download count. It is
     injected rather than called directly so the scorer stays pure and testable;
     the service layer supplies a cached registry-backed implementation."""
+    if new_package_policy not in NEW_PACKAGE_POLICIES:
+        raise ValueError(
+            f"Unsupported new package policy '{new_package_policy}'. "
+            f"Supported: {list(NEW_PACKAGE_POLICIES)}"
+        )
+
     signals: List[str] = []
     score = 0
+    confirmed_typosquat = False
 
     name_l = facts.name.lower()
     known_hallucinations = known_hallucinations or set()
@@ -257,6 +266,7 @@ def assess(
             # target's traffic — is strong standalone evidence, so it must clear
             # the BLOCK threshold on its own rather than needing a second signal.
             score += 60
+            confirmed_typosquat = True
             ratio = facts.monthly_downloads / max(target_dl, 1)
             signals.append(
                 f"{typo.explanation} It captures {ratio:.4%} of '{typo.nearest}' downloads "
@@ -333,6 +343,24 @@ def assess(
         rec = "No risk signals fired. Package appears established."
         if not signals:
             signals.append("Established package with no risk signals.")
+
+    if (
+        verdict == BLOCK
+        and new_package_policy == "review"
+        and facts.age_days is not None
+        and facts.age_days <= VERY_NEW_PACKAGE_DAYS
+        and name_l not in known_hallucinations
+        and not confirmed_typosquat
+    ):
+        verdict = REVIEW
+        signals.append(
+            "New-package policy changed this result from BLOCK to REVIEW; "
+            "confirm the package through trusted project documentation."
+        )
+        rec = (
+            "Have a human confirm this new package before installing it. "
+            "This policy avoids hard-blocking legitimate fresh releases."
+        )
 
     return Assessment(
         name=facts.name,
