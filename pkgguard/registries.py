@@ -13,6 +13,9 @@ need to know which ecosystem it is looking at.
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -20,8 +23,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-USER_AGENT = "pkgguard/0.1 (+https://github.com/)"
+USER_AGENT = "pkgguard/0.1 (+https://github.com/rxslice/pkgguard-API)"
 TIMEOUT = 10
+RETRIES = 2
+CACHE_TTL = 300
 
 
 @dataclass
@@ -39,17 +44,51 @@ class PackageFacts:
     fetch_error: Optional[str] = None
 
 
+def _cache_path(url: str) -> str:
+    root = os.environ.get(
+        "PKGGUARD_CACHE_DIR",
+        os.path.join(os.path.expanduser("~"), ".cache", "pkgguard"),
+    )
+    os.makedirs(root, exist_ok=True)
+    return os.path.join(root, hashlib.sha256(url.encode("utf-8")).hexdigest() + ".json")
+
+
 def _get_json(url: str) -> Optional[dict]:
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.load(resp)
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return None
-        raise
-    except Exception:
-        raise
+        cache = _cache_path(url)
+    except OSError:
+        cache = ""
+    try:
+        if cache and time.time() - os.path.getmtime(cache) <= CACHE_TTL:
+            with open(cache, encoding="utf-8") as stream:
+                return json.load(stream)
+    except (OSError, ValueError):
+        pass
+
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
+    last_error = None
+    for attempt in range(RETRIES + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                data = json.load(resp)
+            if cache:
+                try:
+                    temp = cache + ".tmp"
+                    with open(temp, "w", encoding="utf-8") as stream:
+                        json.dump(data, stream)
+                    os.replace(temp, cache)
+                except OSError:
+                    pass
+            return data
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return None
+            last_error = error
+        except Exception as error:
+            last_error = error
+        if attempt < RETRIES:
+            time.sleep(0.25 * (2 ** attempt))
+    raise last_error
 
 
 def _age_days(iso: Optional[str]) -> Optional[int]:
@@ -136,6 +175,13 @@ def fetch_pypi(name: str) -> PackageFacts:
     if times:
         created = min(times)
 
+    downloads = None
+    try:
+        stats = _get_json(f"https://pypistats.org/api/packages/{safe}/recent")
+        downloads = (stats or {}).get("data", {}).get("last_month")
+    except Exception:
+        pass
+
     return PackageFacts(
         name=name,
         ecosystem="pypi",
@@ -143,7 +189,7 @@ def fetch_pypi(name: str) -> PackageFacts:
         created=created,
         age_days=_age_days(created),
         version_count=len(releases),
-        monthly_downloads=None,  # PyPI does not expose this on the JSON API
+        monthly_downloads=downloads,
         description=(info.get("summary") or None),
         repository=(info.get("project_urls") or {}).get("Source") or info.get("home_page"),
         maintainer_count=None,

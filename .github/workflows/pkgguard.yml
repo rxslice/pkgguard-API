@@ -15,6 +15,9 @@ jobs:
       - name: Install pkgguard
         run: pip install -e .
 
+      - name: Run test suite
+        run: python -m pytest -q
+
       - name: Verify npm dependencies
         if: hashFiles('package.json') != ''
         run: pkgguard scan-manifest package.json

@@ -4,7 +4,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen.svg)](./tests)
+[![CI](https://github.com/rxslice/pkgguard-API/actions/workflows/ci.yml/badge.svg)](https://github.com/rxslice/pkgguard-API/actions/workflows/ci.yml)
 [![False positives](https://img.shields.io/badge/false%20positives-1.0%25-brightgreen.svg)](#how-accurate-is-pkgguard)
 
 **pkgguard is an open-source security tool and API that verifies npm, PyPI, and
@@ -28,7 +28,7 @@ analysis and malware scanners by checking package identity and reputation before
 installation, including names that are not simple misspellings.
 
 ```bash
-pip install -e . && pkgguard check -e npm react-codeshift
+pip install pkgguard && pkgguard check -e npm react-codeshift
 # BLOCK  react-codeshift  [npm]  risk=100
 ```
 
@@ -156,11 +156,11 @@ positives at the cost of recall is not an improvement — report both or neither
 ```bash
 git clone https://github.com/rxslice/pkgguard-API.git
 cd pkgguard-API
-pip install -e .
+pip install .
 ```
 
 Requires Python 3.9+. No API key. No account. No proprietary data feed.
-For the HTTP API: `pip install -e ".[api]"`.
+For the HTTP API: `pip install "pkgguard[api]"`.
 
 ## Usage
 
@@ -263,7 +263,7 @@ For agent toolchains that expect a standard JSON-RPC tool interface, install the
 MCP entry point and expose it over stdio:
 
 ```bash
-pip install -e .
+pip install pkgguard
 pkgguard-mcp
 ```
 
@@ -400,9 +400,10 @@ pre-install window that content scanners largely do not.
 
 ### Which ecosystems are supported?
 
-npm, PyPI, and crates.io. npm and crates.io expose download counts, so
-adoption-ratio typosquat detection is strongest there. PyPI's JSON API does not
-expose downloads, so PyPI falls back to reputation heuristics and is weaker.
+npm, PyPI, and crates.io. npm and crates.io expose download counts directly,
+while pkgguard supplements PyPI metadata with pypistats.org's recent-download
+API. Registry availability and the quality of each ecosystem's metadata still
+affect confidence.
 
 ### Does it need an API key or a paid data feed?
 
@@ -451,30 +452,10 @@ Read these before relying on it.
 - **The known-hallucination corpus holds only 3 entries**, because it contains
   only names with a citable public source. Do not pad it with guesses — a false
   entry produces a confident, wrong `BLOCK`.
-- **Adoption-ratio confirmation needs download data**, which PyPI does not
-  provide.
+- **Download statistics are supplemental.** pypistats.org can be unavailable
+  or delayed, so PyPI decisions fall back to reputation signals when needed.
 - **This is one layer of defense**, not a complete supply-chain security
   program.
-
-## Common questions
-
-### What is the best way to add pkgguard to CI?
-
-Use the reusable GitHub Action under `.github/actions/scan`, or run
-`pkgguard --sarif scan-manifest package.json` in any CI system. SARIF findings
-can be uploaded to GitHub Code Scanning.
-
-### Does pkgguard block normal package installs?
-
-No. It runs before the package manager and returns `ALLOW`, `REVIEW`, or
-`BLOCK`. Established packages normally pass; suspicious or unknown packages
-are explained and fail closed.
-
-### Does pkgguard replace Snyk, Socket, or dependency scanners?
-
-No. It protects the pre-install identity decision, while SCA and malware tools
-analyze dependencies and behavior after resolution. The controls are
-complementary.
 
 ## License
 

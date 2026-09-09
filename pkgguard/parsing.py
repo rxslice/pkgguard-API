@@ -14,29 +14,22 @@ _INSTALL_PATTERNS = [
     (re.compile(r"\bcargo\s+add\s+(.+)", re.I), "crates"),
 ]
 _FLAG = re.compile(r"^-")
-_UNSAFE_REGISTRY_FLAGS = {
-    "--registry",
-    "--index-url",
-    "-i",
-    "--extra-index-url",
-    "--find-links",
-    "-f",
-    "--userconfig",
-    "--globalconfig",
+_KNOWN_FLAGS = {
+    "--audit", "--exact", "--global", "--legacy-peer-deps", "--no-audit",
+    "--no-fund", "--no-save", "--save", "--save-dev", "--save-exact",
+    "--upgrade", "--user", "--verbose", "-D", "-E", "-U", "-d", "-q",
 }
 
 
-def has_registry_override(cmd: str) -> bool:
-    """Return True when a command can redirect package resolution."""
+def has_unsupported_flag(cmd: str) -> bool:
+    """Return True when a command contains a flag not explicitly allowlisted."""
     try:
         tokens = shlex.split(cmd, posix=True)
     except ValueError:
         return True
     for token in tokens:
         normalized = token.lower()
-        if normalized in _UNSAFE_REGISTRY_FLAGS:
-            return True
-        if any(normalized.startswith(flag + "=") for flag in _UNSAFE_REGISTRY_FLAGS if flag.startswith("--")):
+        if normalized.startswith("-") and normalized not in _KNOWN_FLAGS:
             return True
     return False
 

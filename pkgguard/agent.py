@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .parsing import has_registry_override, parse_install_command
+from .parsing import has_unsupported_flag, parse_install_command
 from .scoring import Assessment
 from .service import verify_many
 from .scoring import NEW_PACKAGE_POLICIES
@@ -97,12 +97,12 @@ def authorize_command(
             reason="Compound or shell-interpolated commands require human review.",
         )
 
-    if has_registry_override(command):
+    if has_unsupported_flag(command):
         return CommandDecision(
             command=command,
             decision="REVIEW",
             ecosystem=None,
-            reason="Custom registry or package index overrides require human review.",
+            reason="Unrecognized package-manager flags require human review.",
         )
 
     ecosystem, packages = parse_install_command(command)
