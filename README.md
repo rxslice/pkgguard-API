@@ -4,7 +4,7 @@
 
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Tests](https://img.shields.io/badge/tests-47%20passing-brightgreen.svg)](./tests)
+[![Tests](https://img.shields.io/badge/tests-54%20passing-brightgreen.svg)](./tests)
 [![False positives](https://img.shields.io/badge/false%20positives-1.0%25-brightgreen.svg)](#how-accurate-is-pkgguard)
 
 **pkgguard is an open-source security tool and API that verifies npm, PyPI, and
@@ -155,7 +155,7 @@ positives at the cost of recall is not an improvement — report both or neither
 
 ```bash
 git clone https://github.com/rxslice/pkgguard-API.git
-cd pkgguard
+cd pkgguard-API
 pip install -e .
 ```
 
@@ -339,7 +339,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: rxslice/pkgguard/.github/actions/scan@main
+      - uses: rxslice/pkgguard-API/.github/actions/scan@main
         with:
           manifest: package.json
 ```
@@ -455,14 +455,6 @@ Read these before relying on it.
   provide.
 - **This is one layer of defense**, not a complete supply-chain security
   program.
-
-## Keywords
-
-slopsquatting detection · AI package hallucination · LLM hallucinated
-dependencies · npm typosquatting scanner · PyPI supply chain security ·
-dependency confusion · AI coding agent security · package name verification API
-· software supply chain attack prevention · conflation detection · CI/CD
-dependency gate
 
 ## Common questions
 

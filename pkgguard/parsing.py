@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import shlex
 from typing import List, Optional, Tuple
 
 _INSTALL_PATTERNS = [
@@ -13,6 +14,31 @@ _INSTALL_PATTERNS = [
     (re.compile(r"\bcargo\s+add\s+(.+)", re.I), "crates"),
 ]
 _FLAG = re.compile(r"^-")
+_UNSAFE_REGISTRY_FLAGS = {
+    "--registry",
+    "--index-url",
+    "-i",
+    "--extra-index-url",
+    "--find-links",
+    "-f",
+    "--userconfig",
+    "--globalconfig",
+}
+
+
+def has_registry_override(cmd: str) -> bool:
+    """Return True when a command can redirect package resolution."""
+    try:
+        tokens = shlex.split(cmd, posix=True)
+    except ValueError:
+        return True
+    for token in tokens:
+        normalized = token.lower()
+        if normalized in _UNSAFE_REGISTRY_FLAGS:
+            return True
+        if any(normalized.startswith(flag + "=") for flag in _UNSAFE_REGISTRY_FLAGS if flag.startswith("--")):
+            return True
+    return False
 
 
 def parse_install_command(cmd: str) -> Tuple[Optional[str], List[str]]:
