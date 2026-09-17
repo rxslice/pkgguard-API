@@ -223,6 +223,11 @@ Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
 
 ### Paid API deployment
 
+The launch pricing is Free ($0), Pro ($19/month), and Team ($79/month). The
+paid plans increase the per-minute quota to 1,000 and 5,000 requests. Capped
+plans return `429` instead of surprise overage charges. See [the billing
+guide](docs/billing.md) for Stripe configuration.
+
 The API supports provider-neutral API-key authentication and plan-based
 per-minute limits. This keeps payment processing outside the security engine:
 your billing system provisions a key after checkout and revokes it when a

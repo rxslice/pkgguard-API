@@ -25,7 +25,13 @@ from .scoring import NEW_PACKAGE_POLICIES
 from .service import verify_many, verify_package
 from .agent import authorize_command, decision_to_dict
 from .auth import ApiPlan, authenticate
-from .accounts import account_for_session, create_account, create_session, update_subscription
+from .accounts import (
+    account_for_session,
+    account_for_subscription,
+    create_account,
+    create_session,
+    update_subscription,
+)
 from .payments import create_checkout, verify_webhook
 
 app = FastAPI(
@@ -176,18 +182,24 @@ async def billing_webhook(request: Request) -> dict:
     event_type = event.get("type")
     data = event.get("data", {}).get("object", {})
     if event_type in {
+        "customer.subscription.created",
         "checkout.session.completed",
         "customer.subscription.updated",
         "customer.subscription.deleted",
+        "customer.subscription.paused",
     }:
         metadata = data.get("metadata", {}) or {}
         email = metadata.get("pkgguard_email")
+        subscription_id = data.get("subscription", data.get("id", ""))
+        if not email:
+            existing = account_for_subscription(subscription_id)
+            email = existing["email"] if existing is not None else None
         if email:
             update_subscription(
                 email,
                 data.get("customer", ""),
-                data.get("subscription", data.get("id", "")),
-                "free" if event_type.endswith(".deleted") else metadata.get("pkgguard_plan", "pro"),
+                subscription_id,
+                "free" if event_type.endswith((".deleted", ".paused")) else metadata.get("pkgguard_plan", "pro"),
             )
     return {"received": True}
 

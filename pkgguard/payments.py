@@ -35,6 +35,9 @@ def create_checkout(email: str, price_id: str, success_url: str, cancel_url: str
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={"pkgguard_email": email, "pkgguard_plan": plan},
+        subscription_data={
+            "metadata": {"pkgguard_email": email, "pkgguard_plan": plan},
+        },
     )
     return session.url
 

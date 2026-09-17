@@ -123,3 +123,16 @@ def update_subscription(
     )
     connection.commit()
     connection.close()
+
+
+def account_for_subscription(subscription_id: str):
+    """Find the account attached to a Stripe subscription for webhook events."""
+    if not subscription_id:
+        return None
+    connection = _connect()
+    row = connection.execute(
+        "SELECT * FROM accounts WHERE stripe_subscription_id = ?",
+        (subscription_id,),
+    ).fetchone()
+    connection.close()
+    return row

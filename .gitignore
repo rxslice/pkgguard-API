@@ -5,3 +5,8 @@ __pycache__/
 .venv/
 dist/
 build/
+.env
+.env.*
+!.env.example
+*.sqlite3
+*.sqlite3-*
