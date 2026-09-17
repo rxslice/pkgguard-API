@@ -4,11 +4,12 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pkgguard"
-version = "0.1.0"
+version = "0.3.0"
 description = "Open-source AI package security gate for slopsquatting, hallucinated dependencies, and typosquats across npm, PyPI, and crates.io."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Blvkware", email = "hello@blvkware.dev" }]
 keywords = [
     "slopsquatting", "supply-chain-security", "package-hallucination",
@@ -32,6 +33,7 @@ Issues = "https://github.com/rxslice/pkgguard-API/issues"
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.0"]
+payments = ["stripe>=10.0"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

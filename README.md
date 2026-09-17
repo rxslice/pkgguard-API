@@ -159,7 +159,8 @@ cd pkgguard-API
 pip install .
 ```
 
-Requires Python 3.9+. No API key. No account. No proprietary data feed.
+Requires Python 3.9+. The open-source CLI is account-free. The hosted API
+uses account sessions or API keys and never requires a proprietary data feed.
 For the HTTP API: `pip install "pkgguard[api]"`.
 
 ## Usage
@@ -219,6 +220,33 @@ curl -X POST http://127.0.0.1:8000/v1/verify \
 ```
 
 Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
+
+### Paid API deployment
+
+The API supports provider-neutral API-key authentication and plan-based
+per-minute limits. This keeps payment processing outside the security engine:
+your billing system provisions a key after checkout and revokes it when a
+subscription ends.
+
+For the reference hosted account flow, install `pkgguard[api,payments]`.
+`POST /v1/accounts` creates an account, `/v1/accounts/session` signs in, and
+`POST /v1/billing/checkout` starts a Stripe subscription. Configure Stripe to
+deliver signed subscription events to `/v1/billing/webhook`.
+
+```bash
+PKGGUARD_REQUIRE_API_KEY=true \
+PKGGUARD_API_KEYS="pk_live_customer_123=pro" \
+uvicorn pkgguard.api:app --host 0.0.0.0 --port 8000
+```
+
+Send either `Authorization: Bearer <key>` or `X-API-Key: <key>`. Plans are
+`free` (60 requests/minute), `pro` (1,000), and `team` (5,000). Successful
+requests include `X-RateLimit-Limit`, `X-RateLimit-Remaining`,
+`X-RateLimit-Reset`, and `X-Pkgguard-Plan`; clients should back off on `429`.
+`/v1/health`, `/docs`, and `/openapi.json` remain public for probes and
+integration discovery. The in-memory limiter is suitable for one process;
+deploy behind a shared gateway or replace the limiter with shared storage
+before running multiple API replicas.
 
 ### Agent command authorization
 
@@ -306,7 +334,7 @@ The action fails the job for `BLOCK` and `REVIEW` by default and publishes
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/v1/health` | Liveness + supported ecosystems |
+| `GET` | `/v1/health` | Liveness + supported ecosystems (public) |
 | `GET` | `/v1/verify/{ecosystem}/{name}` | Verify one package |
 | `POST` | `/v1/verify` | Verify a batch (up to 100) |
 | `POST` | `/v1/agent/authorize` | Authorize an agent-generated install command |
@@ -407,8 +435,9 @@ affect confidence.
 
 ### Does it need an API key or a paid data feed?
 
-No. All three registries expose free, unauthenticated, public JSON APIs. That is
-deliberate — it keeps the tool free to run and free to self-host.
+The open-source CLI does not. The hosted API uses a customer account session
+or API key for quota enforcement. All three registry clients remain free,
+unauthenticated public JSON APIs; pkgguard does not require a paid data feed.
 
 ### Can it run offline?
 

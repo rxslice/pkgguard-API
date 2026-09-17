@@ -17,17 +17,20 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from .registries import SUPPORTED_ECOSYSTEMS
 from .scoring import NEW_PACKAGE_POLICIES
 from .service import verify_many, verify_package
 from .agent import authorize_command, decision_to_dict
+from .auth import ApiPlan, authenticate
+from .accounts import account_for_session, create_account, create_session, update_subscription
+from .payments import create_checkout, verify_webhook
 
 app = FastAPI(
     title="pkgguard",
-    version="0.1.0",
+    version="0.3.0",
     description=(
         "Verify package names before installing them.\n\n"
         "LLM coding agents invent plausible-but-nonexistent package names at a measurable "
@@ -38,7 +41,8 @@ app = FastAPI(
         "detection** (does this name blend two real packages into a third that never "
         "existed?), typosquat distance, and reputation signals — and returns "
         "`ALLOW` / `REVIEW` / `BLOCK`.\n\n"
-        "No API key required. No proprietary data. Self-hostable."
+        "API keys and plan-based rate limits are enabled with "
+        "`PKGGUARD_REQUIRE_API_KEY=true`. Self-hostable."
     ),
 )
 
@@ -101,13 +105,99 @@ class AuthorizeResponse(BaseModel):
     safe_to_execute: bool
 
 
+class AccountCredentials(BaseModel):
+    email: str = Field(..., min_length=3, max_length=320)
+    password: str = Field(..., min_length=12, max_length=256)
+
+
+class SessionResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+
+
+class CheckoutRequest(BaseModel):
+    price_id: str = Field(..., min_length=1, max_length=200)
+    success_url: str = Field(..., min_length=1, max_length=2_000)
+    cancel_url: str = Field(..., min_length=1, max_length=2_000)
+
+
+def _session_account(request: Request):
+    authorization = request.headers.get("Authorization", "")
+    if not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="A signed-in account is required.")
+    account = account_for_session(authorization[7:].strip())
+    if account is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired session.")
+    return account
+
+
 @app.get("/v1/health", tags=["meta"])
 async def health() -> dict:
     return {"status": "ok", "ecosystems": list(SUPPORTED_ECOSYSTEMS)}
 
 
+@app.post("/v1/accounts", response_model=SessionResponse, status_code=201, tags=["accounts"])
+async def register_account(payload: AccountCredentials) -> SessionResponse:
+    try:
+        create_account(payload.email, payload.password)
+        token = create_session(payload.email, payload.password)
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    return SessionResponse(access_token=token)
+
+
+@app.post("/v1/accounts/session", response_model=SessionResponse, tags=["accounts"])
+async def login_account(payload: AccountCredentials) -> SessionResponse:
+    try:
+        token = create_session(payload.email, payload.password)
+    except ValueError as error:
+        raise HTTPException(status_code=401, detail=str(error))
+    return SessionResponse(access_token=token)
+
+
+@app.post("/v1/billing/checkout", tags=["billing"])
+async def billing_checkout(payload: CheckoutRequest, request: Request) -> dict:
+    account = _session_account(request)
+    try:
+        url = create_checkout(
+            account["email"], payload.price_id, payload.success_url, payload.cancel_url
+        )
+    except (RuntimeError, ValueError) as error:
+        raise HTTPException(status_code=503, detail=str(error))
+    return {"url": url}
+
+
+@app.post("/v1/billing/webhook", tags=["billing"])
+async def billing_webhook(request: Request) -> dict:
+    try:
+        event = verify_webhook(await request.body(), request.headers.get("stripe-signature", ""))
+    except (RuntimeError, ValueError, TypeError) as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    event_type = event.get("type")
+    data = event.get("data", {}).get("object", {})
+    if event_type in {
+        "checkout.session.completed",
+        "customer.subscription.updated",
+        "customer.subscription.deleted",
+    }:
+        metadata = data.get("metadata", {}) or {}
+        email = metadata.get("pkgguard_email")
+        if email:
+            update_subscription(
+                email,
+                data.get("customer", ""),
+                data.get("subscription", data.get("id", "")),
+                "free" if event_type.endswith(".deleted") else metadata.get("pkgguard_plan", "pro"),
+            )
+    return {"received": True}
+
+
 @app.post("/v1/agent/authorize", response_model=AuthorizeResponse, tags=["agent"])
-async def authorize_agent_command(payload: AuthorizeRequest) -> AuthorizeResponse:
+async def authorize_agent_command(
+    payload: AuthorizeRequest,
+    response: Response,
+    _plan: ApiPlan = Depends(authenticate),
+) -> AuthorizeResponse:
     """Authorize an agent-generated install command without executing it."""
     try:
         decision = authorize_command(payload.command, payload.new_package_policy)
@@ -129,7 +219,9 @@ async def authorize_agent_command(payload: AuthorizeRequest) -> AuthorizeRespons
 async def verify_one(
     ecosystem: str,
     name: str,
+    response: Response,
     new_package_policy: str = Query("block", description="Policy for very new packages."),
+    _plan: ApiPlan = Depends(authenticate),
 ) -> AssessmentOut:
     """Verify a single package name. Convenient for quick manual checks and
     for tools that prefer a GET."""
@@ -141,7 +233,11 @@ async def verify_one(
 
 
 @app.post("/v1/verify", response_model=VerifyResponse, tags=["verify"])
-async def verify_batch(payload: VerifyRequest) -> VerifyResponse:
+async def verify_batch(
+    payload: VerifyRequest,
+    response: Response,
+    _plan: ApiPlan = Depends(authenticate),
+) -> VerifyResponse:
     """Verify a batch of package names. This is the endpoint agent frameworks
     and CI pipelines should call — one round trip for a whole dependency set."""
     try:

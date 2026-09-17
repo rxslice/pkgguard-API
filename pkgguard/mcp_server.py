@@ -50,7 +50,7 @@ def _handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "pkgguard", "version": "0.1.0"},
+                "serverInfo": {"name": "pkgguard", "version": "0.3.0"},
             },
         )
 

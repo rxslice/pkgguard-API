@@ -598,3 +598,103 @@ def test_toolgate_respects_env_defaults(monkeypatch):
     assert _env_policy("block") == "review"
     monkeypatch.delenv("PKGGUARD_ALLOW_REVIEW", raising=False)
     monkeypatch.delenv("PKGGUARD_NEW_PACKAGE_POLICY", raising=False)
+
+
+def test_paid_api_requires_a_valid_key(monkeypatch):
+    monkeypatch.setenv("PKGGUARD_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("PKGGUARD_API_KEYS", "pk_test_customer=pro")
+    client = TestClient(app)
+
+    missing = client.post("/v1/verify", json={"names": ["express"], "ecosystem": "npm"})
+    invalid = client.post(
+        "/v1/verify",
+        headers={"Authorization": "Bearer pk_test_wrong"},
+        json={"names": ["express"], "ecosystem": "npm"},
+    )
+
+    assert missing.status_code == 401
+    assert invalid.status_code == 401
+
+
+def test_paid_api_accepts_key_and_exposes_quota_headers(monkeypatch):
+    monkeypatch.setenv("PKGGUARD_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("PKGGUARD_API_KEYS", "pk_test_customer=pro")
+    monkeypatch.setattr("pkgguard.api.verify_many", lambda *args: [])
+
+    response = TestClient(app).post(
+        "/v1/verify",
+        headers={"X-API-Key": "pk_test_customer"},
+        json={"names": ["express"], "ecosystem": "npm"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["X-RateLimit-Limit"] == "1000"
+    assert response.headers["X-Pkgguard-Plan"] == "pro"
+    assert int(response.headers["X-RateLimit-Remaining"]) == 999
+
+
+def test_paid_api_allows_the_limit_boundary(monkeypatch):
+    import pkgguard.auth as auth
+
+    monkeypatch.setenv("PKGGUARD_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("PKGGUARD_API_KEYS", "pk_test_customer=free")
+    monkeypatch.setattr("pkgguard.api.verify_many", lambda *args: [])
+    auth._usage.clear()
+    client = TestClient(app)
+
+    for _ in range(60):
+        response = client.post(
+            "/v1/verify",
+            headers={"X-API-Key": "pk_test_customer"},
+            json={"names": ["express"], "ecosystem": "npm"},
+        )
+
+    assert response.status_code == 200
+    assert response.headers["X-RateLimit-Remaining"] == "0"
+    limited = client.post(
+        "/v1/verify",
+        headers={"X-API-Key": "pk_test_customer"},
+        json={"names": ["express"], "ecosystem": "npm"},
+    )
+    assert limited.status_code == 429
+
+
+def test_health_remains_public_when_paid_api_is_enabled(monkeypatch):
+    monkeypatch.setenv("PKGGUARD_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("PKGGUARD_API_KEYS", "pk_test_customer=pro")
+
+    response = TestClient(app).get("/v1/health")
+
+    assert response.status_code == 200
+
+
+def test_account_registration_and_session_can_call_paid_api(monkeypatch, tmp_path):
+    monkeypatch.setenv("PKGGUARD_REQUIRE_API_KEY", "true")
+    monkeypatch.setenv("PKGGUARD_ACCOUNT_DB", str(tmp_path / "accounts.sqlite3"))
+    monkeypatch.setattr("pkgguard.api.verify_many", lambda *args: [])
+    client = TestClient(app)
+
+    created = client.post(
+        "/v1/accounts",
+        json={"email": "owner@example.com", "password": "correct horse battery"},
+    )
+    assert created.status_code == 201
+    token = created.json()["access_token"]
+
+    response = client.post(
+        "/v1/verify",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"names": ["express"], "ecosystem": "npm"},
+    )
+    assert response.status_code == 200
+    assert response.headers["X-Pkgguard-Plan"] == "free"
+
+
+def test_account_rejects_weak_password_and_duplicate_email(monkeypatch, tmp_path):
+    monkeypatch.setenv("PKGGUARD_ACCOUNT_DB", str(tmp_path / "accounts.sqlite3"))
+    client = TestClient(app)
+    payload = {"email": "owner@example.com", "password": "short"}
+    assert client.post("/v1/accounts", json=payload).status_code == 422
+    valid = {"email": "owner@example.com", "password": "correct horse battery"}
+    assert client.post("/v1/accounts", json=valid).status_code == 201
+    assert client.post("/v1/accounts", json=valid).status_code == 400
