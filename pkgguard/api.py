@@ -20,6 +20,7 @@ from typing import List, Optional
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
 
+from . import __version__
 from .registries import SUPPORTED_ECOSYSTEMS
 from .scoring import NEW_PACKAGE_POLICIES
 from .service import verify_many, verify_package
@@ -27,7 +28,7 @@ from .agent import authorize_command, decision_to_dict
 
 app = FastAPI(
     title="pkgguard",
-    version="0.1.0",
+    version=__version__,
     description=(
         "Verify package names before installing them.\n\n"
         "LLM coding agents invent plausible-but-nonexistent package names at a measurable "

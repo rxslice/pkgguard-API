@@ -401,7 +401,7 @@ python scripts/refresh_corpus.py --ecosystem crates --limit 1500
 
 Quarterly is plenty. Note that npm's search API is lossy (it omitted `lodash`,
 `jscodeshift`, and `react-codemod` from an 11,000-name harvest), so
-`data/must_include.json` is merged in unconditionally.
+`pkgguard/data/must_include.json` is merged in unconditionally.
 
 ## Frequently asked questions
 

@@ -25,7 +25,7 @@ from pathlib import Path
 from typing import Dict, List
 
 UA = {"User-Agent": "pkgguard-corpus-refresh/0.1", "Accept": "application/json"}
-DATA = Path(__file__).parent.parent / "data"
+DATA = Path(__file__).parent.parent / "pkgguard" / "data"
 
 # Broad vocabulary so the harvest is not biased toward one part of the ecosystem.
 NPM_SEEDS = [

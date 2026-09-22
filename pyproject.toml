@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "pkgguard"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Open-source AI package security gate for slopsquatting, hallucinated dependencies, and typosquats across npm, PyPI, and crates.io."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Blvkware", email = "russ@blvkware.dev" }]
 keywords = [
     "slopsquatting", "supply-chain-security", "package-hallucination",
@@ -49,7 +50,10 @@ pkgguard-poetry = "pkgguard.toolgate:main_poetry"
 pkgguard-cargo = "pkgguard.toolgate:main_cargo"
 
 [tool.setuptools]
-packages = ["pkgguard"]
+packages = ["pkgguard", "pkgguard.data"]
+
+[tool.setuptools.dynamic]
+version = { attr = "pkgguard.__version__" }
 
 [tool.setuptools.package-data]
-pkgguard = ["../data/*.json"]
+"pkgguard.data" = ["*.json"]

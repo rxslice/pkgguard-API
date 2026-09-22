@@ -15,7 +15,10 @@ from .conflation import ConflationDetector
 from .registries import SUPPORTED_ECOSYSTEMS, fetch
 from .scoring import Assessment, assess
 
-DATA_DIR = Path(os.environ.get("PKGGUARD_DATA_DIR", Path(__file__).parent.parent / "data"))
+# Inside the package, so a wheel installs it as pkgguard/data rather than as a
+# top-level `data/` directory in site-packages that any other package could
+# collide with.
+DATA_DIR = Path(os.environ.get("PKGGUARD_DATA_DIR", Path(__file__).parent / "data"))
 
 _CORPUS_FILES = {
     "npm": "top_npm.json",
@@ -46,7 +49,7 @@ def get_detector(ecosystem: str) -> ConflationDetector:
 def load_known_hallucinations() -> Dict[str, Set[str]]:
     """Names documented in public research/incident reports as LLM-invented.
 
-    Kept small and sourced rather than speculative — see data/known_hallucinations.json
+    Kept small and sourced rather than speculative — see pkgguard/data/known_hallucinations.json
     for provenance on each entry."""
     path = DATA_DIR / "known_hallucinations.json"
     if not path.exists():

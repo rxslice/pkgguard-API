@@ -10,6 +10,7 @@ import json
 import sys
 from typing import Any, Dict, List
 
+from . import __version__
 from .agent import authorize_command, decision_to_dict
 
 
@@ -50,7 +51,7 @@ def _handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
             {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "pkgguard", "version": "0.1.0"},
+                "serverInfo": {"name": "pkgguard", "version": __version__},
             },
         )
 
