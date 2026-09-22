@@ -31,12 +31,12 @@ app = FastAPI(
     description=(
         "Verify package names before installing them.\n\n"
         "LLM coding agents invent plausible-but-nonexistent package names at a measurable "
-        "rate, and attackers pre-register those names on public registries — an attack "
+        "rate, and attackers pre-register those names on public registries: an attack "
         "class known as **slopsquatting**. Because hallucinated names are not misspellings, "
         "registry typosquat heuristics do not catch them.\n\n"
         "pkgguard checks a name against the live registry, then applies **conflation "
         "detection** (does this name blend two real packages into a third that never "
-        "existed?), typosquat distance, and reputation signals — and returns "
+        "existed?), typosquat distance, and reputation signals, and returns "
         "`ALLOW` / `REVIEW` / `BLOCK`.\n\n"
         "No API key required. No proprietary data. Self-hostable."
     ),
@@ -143,7 +143,7 @@ async def verify_one(
 @app.post("/v1/verify", response_model=VerifyResponse, tags=["verify"])
 async def verify_batch(payload: VerifyRequest) -> VerifyResponse:
     """Verify a batch of package names. This is the endpoint agent frameworks
-    and CI pipelines should call — one round trip for a whole dependency set."""
+    and CI pipelines should call: one round trip for a whole dependency set."""
     try:
         results = verify_many(
             payload.names,

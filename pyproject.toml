@@ -9,7 +9,7 @@ description = "Open-source AI package security gate for slopsquatting, hallucina
 readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
-authors = [{ name = "Blvkware", email = "hello@blvkware.dev" }]
+authors = [{ name = "Blvkware", email = "russ@blvkware.dev" }]
 keywords = [
     "slopsquatting", "supply-chain-security", "package-hallucination",
     "typosquatting", "dependency-confusion", "llm-security", "ai-security",

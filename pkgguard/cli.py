@@ -179,7 +179,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         eco, names = parse_install_command(cmd)
         if not eco or not names:
             if not args.json:
-                print("No install command recognized — nothing to check.")
+                print("No install command recognized, so there is nothing to check.")
             return 0
         results = verify_many(names, eco, args.new_package_policy)
         return render(results, args.json, args.sarif)

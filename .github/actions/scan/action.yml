@@ -22,9 +22,17 @@ outputs:
 runs:
   using: composite
   steps:
+    # A composite action's steps run in the caller's workspace, so `.` is the
+    # caller's repository, not pkgguard. Install from the action's own
+    # checkout (the repository root, three levels above this file), into a
+    # Python this action sets up rather than whatever the runner happens to have.
+    - name: Set up Python for pkgguard
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
     - name: Install pkgguard
       shell: bash
-      run: python -m pip install -e .
+      run: python -m pip install --disable-pip-version-check "$GITHUB_ACTION_PATH/../../.."
     - name: Scan manifest
       id: scan
       shell: bash

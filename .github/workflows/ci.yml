@@ -21,3 +21,33 @@ jobs:
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -e ".[dev,api]"
       - run: python -m pytest -q
+
+  action-as-external-caller:
+    # Runs the composite action the way another repository does: pkgguard sits
+    # in a subdirectory and the workspace root is somebody else's project.
+    # The action used to `pip install -e .`, which installs the caller's
+    # repository, so it only ever worked inside this one.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: pkgguard-src
+      - name: A caller's own project at the workspace root
+        run: printf '{"name":"caller","dependencies":{"express":"^4.19.0"}}\n' > package.json
+      - name: Authorize an ordinary install
+        id: ordinary
+        uses: ./pkgguard-src/.github/actions/authorize
+        with:
+          command: npm install express
+      - name: Authorize a known slopsquat
+        id: squat
+        continue-on-error: true
+        uses: ./pkgguard-src/.github/actions/authorize
+        with:
+          command: npm install react-codeshift
+      - name: Check both decisions
+        run: |
+          test "${{ steps.ordinary.outputs.decision }}" = "ALLOW"
+          test "${{ steps.ordinary.outputs.safe-to-execute }}" = "true"
+          test "${{ steps.squat.outputs.decision }}" = "BLOCK"
+          test "${{ steps.squat.outputs.safe-to-execute }}" = "false"

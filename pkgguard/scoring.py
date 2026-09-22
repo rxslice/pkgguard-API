@@ -198,14 +198,14 @@ def assess(
             risk_score=50,
             exists=False,
             signals=[f"Could not reach the {facts.ecosystem} registry: {facts.fetch_error}"],
-            recommendation="Registry lookup failed — retry before trusting this result. Do not treat as ALLOW.",
+            recommendation="Registry lookup failed. Retry before trusting this result, and do not treat it as ALLOW.",
         )
 
     # --- Signal: on the known-hallucination corpus --------------------------
     if name_l in known_hallucinations:
         score += 60
         signals.append(
-            "Name appears on the known-hallucination corpus — multiple frontier LLMs "
+            "Name appears on the known-hallucination corpus: multiple frontier LLMs "
             "have been documented inventing this exact name."
         )
 
@@ -229,7 +229,7 @@ def assess(
             signals=signals,
             recommendation=(
                 "Do not install. Verify the correct package name from official documentation. "
-                "If this name was suggested by an AI assistant, treat it as fabricated — and note "
+                "If this name was suggested by an AI assistant, treat it as fabricated, and note "
                 "that an attacker may register it later even if it is unclaimed today."
             ),
             conflation=conf.__dict__ if conf.is_conflation else None,
@@ -270,12 +270,12 @@ def assess(
             ratio = facts.monthly_downloads / max(target_dl, 1)
             signals.append(
                 f"{typo.explanation} It captures {ratio:.4%} of '{typo.nearest}' downloads "
-                f"({facts.monthly_downloads:,} vs {target_dl:,}) — the adoption gap of a typosquat, "
+                f"({facts.monthly_downloads:,} vs {target_dl:,}): the adoption gap of a typosquat, "
                 f"not a sibling project."
             )
         elif confirmed is False:
             signals.append(
-                f"Name is similar to '{typo.nearest}', but adoption is comparable — "
+                f"Name is similar to '{typo.nearest}', but adoption is comparable, so it is "
                 "treated as a coincidental name collision, not a typosquat."
             )
         else:
@@ -284,12 +284,12 @@ def assess(
                 score += 30
                 signals.append(
                     f"{typo.explanation} Adoption data unavailable, and the package is "
-                    "new/low-history — treating the similarity as unresolved."
+                    "new or has little history, so the similarity is treated as unresolved."
                 )
             else:
                 signals.append(
                     f"Name is similar to '{typo.nearest}', but the package is established "
-                    "and adoption data is unavailable — treated as coincidental."
+                    "and adoption data is unavailable, so it is treated as coincidental."
                 )
 
     if conf.is_conflation and not established:
@@ -314,7 +314,7 @@ def assess(
 
     if facts.version_count is not None and facts.version_count <= 1:
         score += 15
-        signals.append("Only a single published version — no release history.")
+        signals.append("Only a single published version, with no release history.")
 
     if facts.monthly_downloads is not None and facts.monthly_downloads < LOW_DOWNLOADS:
         score += 15

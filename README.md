@@ -1,4 +1,4 @@
-# pkgguard — Open-Source AI Package Security Gate
+# pkgguard: Open-Source AI Package Security Gate
 
 **Built by [Blvkware](https://blvkware.dev)**
 
@@ -10,8 +10,8 @@
 **pkgguard is an open-source security tool and API that verifies npm, PyPI, and
 crates.io package names before installation, to catch LLM-hallucinated
 dependencies and slopsquatting supply-chain attacks.** It detects the
-conflation attack pattern — where an AI blends two real package names into a
-third that never existed — which typosquatting scanners structurally cannot
+conflation attack pattern (where an AI blends two real package names into a
+third that never existed), which typosquatting scanners structurally cannot
 catch. Measured at **1.0% false positives with 7/7 threat recall** against live
 registry data.
 
@@ -28,9 +28,15 @@ analysis and malware scanners by checking package identity and reputation before
 installation, including names that are not simple misspellings.
 
 ```bash
-pip install pkgguard && pkgguard check -e npm react-codeshift
+pip install "git+https://github.com/rxslice/pkgguard-API.git" && pkgguard check -e npm react-codeshift
 # BLOCK  react-codeshift  [npm]  risk=100
 ```
+
+> **pkgguard is not on PyPI, and the name `pkgguard` there is unclaimed.**
+> Install from this repository, as above. Do not run `pip install pkgguard`
+> against PyPI: an unclaimed name that people are told to install is exactly
+> what slopsquatting exploits, and a security tool is the last thing you want
+> to take from a stranger.
 
 ---
 
@@ -63,9 +69,9 @@ It works because package hallucination is measurable and repeatable:
 - A 2025 USENIX Security study of 16 models across 576,000 code samples found
   AI tools recommend nonexistent packages roughly **19.7%** of the time.
 - **43%** of hallucinated names were reproduced identically across repeated
-  runs of the same prompt — making them a predictable target list.
+  runs of the same prompt, making them a predictable target list.
 - A 2026 replication across five frontier models measured hallucination rates
-  of **4.62%–6.10%** — lower, but not retired.
+  of **4.62%–6.10%**: lower, but not retired.
 - That replication identified **127 package names all five models invent
   identically**.
 
@@ -89,7 +95,7 @@ name real, and does it look like something an attacker planted?*
 **Because hallucinated names are not misspellings, so edit-distance similarity
 checks score them as unrelated packages.**
 
-The dominant attack shape is **conflation** — an LLM blending two real packages
+The dominant attack shape is **conflation**, an LLM blending two real packages
 into a third:
 
 ```
@@ -105,7 +111,7 @@ candidate name, checks whether each token traces back to a different real
 popular package, and confirms no real package contains the full combination.
 
 **An existence check alone does not protect you.** By the time you look, the
-hallucinated name frequently *does* exist — because someone registered it. That
+hallucinated name frequently *does* exist, because someone registered it. That
 is the entire attack.
 
 ## How accurate is pkgguard?
@@ -118,7 +124,7 @@ Benchmarked against live registry data, not synthetic fixtures.
 | Correctly `ALLOW`ed | 96.0% |
 | Threat recall (real slopsquats, conflations, typosquats) | **7/7** |
 
-Both documented real-world slopsquats — `react-codeshift` and `unused-imports` —
+Both documented real-world slopsquats, `react-codeshift` and `unused-imports`,
 score 100 and `BLOCK`.
 
 ### How these numbers were reached
@@ -138,7 +144,7 @@ Two architectural corrections brought it to 1.0%:
    *plus* single-version blocks. Conflation plus real release history does not.
 
 2. **Typosquat detection measures adoption ratio, not spelling.** `expres` is 14
-   years old with a real repository and 22,468 monthly downloads — every
+   years old with a real repository and 22,468 monthly downloads, so every
    age-and-history heuristic reads it as legitimate. But `express` has
    529,873,075. Capturing 0.0042% of your namesake's traffic *is* the signature.
 
@@ -149,9 +155,15 @@ python scripts/benchmark.py --sample 200
 ```
 
 If you change any scoring logic, re-run it. A change that improves false
-positives at the cost of recall is not an improvement — report both or neither.
+positives at the cost of recall is not an improvement. Report both or neither.
 
 ## Installation
+
+```bash
+pip install "git+https://github.com/rxslice/pkgguard-API.git"
+```
+
+Or from a clone, to read the code first:
 
 ```bash
 git clone https://github.com/rxslice/pkgguard-API.git
@@ -160,7 +172,8 @@ pip install .
 ```
 
 Requires Python 3.9+. No API key. No account. No proprietary data feed.
-For the HTTP API: `pip install "pkgguard[api]"`.
+For the HTTP API: `pip install "pkgguard[api] @ git+https://github.com/rxslice/pkgguard-API.git"`.
+Pin a release with `@v0.1.0` on the end of the URL.
 
 ## Usage
 
@@ -188,7 +201,7 @@ BLOCK  react-codeshift  [npm]  risk=100
          combination that does not exist. This is the signature of an LLM
          hallucination-by-conflation, which edit-distance typosquat checks
          do not detect.
-       - Only a single published version — no release history.
+       - Only a single published version, with no release history.
        - Low adoption: 11 downloads in the last month.
        > Do not install without verifying this is the package you intend.
 ```
@@ -263,7 +276,7 @@ For agent toolchains that expect a standard JSON-RPC tool interface, install the
 MCP entry point and expose it over stdio:
 
 ```bash
-pip install pkgguard
+pip install "git+https://github.com/rxslice/pkgguard-API.git"
 pkgguard-mcp
 ```
 
@@ -290,7 +303,7 @@ For agent workflows running in GitHub Actions, use the composite action:
 ```yaml
 - name: Authorize agent install
   id: pkgguard
-  uses: ./.github/actions/authorize
+  uses: rxslice/pkgguard-API/.github/actions/authorize@main
   with:
     command: npm install react-codeshift lodash
 
@@ -363,7 +376,7 @@ pkgguard --sarif scan-manifest package.json > pkgguard.sarif
 | Package does not exist | +70 | An AI suggested a name that isn't real |
 | On known-hallucination corpus | +60 | Documented in public research |
 | Confirmed typosquat | +60 | Close spelling **and** under 1% of target's downloads |
-| Conflation (weak reputation only) | +30 | Cannot reach BLOCK alone — by design |
+| Conflation (weak reputation only) | +30 | Cannot reach BLOCK alone, by design |
 | Age 30 days or less | +30 | |
 | Unresolved typosquat (no download data) | +30 | Fails toward caution |
 | Age 120 days or less | +15 | |
@@ -373,7 +386,7 @@ pkgguard --sarif scan-manifest package.json > pkgguard.sarif
 
 `BLOCK` at 60+ · `REVIEW` at 25+ · otherwise `ALLOW`
 
-A registry failure never returns `ALLOW` — it returns `REVIEW` with the error
+A registry failure never returns `ALLOW`. It returns `REVIEW` with the error
 surfaced. Failing toward caution is deliberate.
 
 ## Refreshing the popularity corpora
@@ -386,8 +399,8 @@ python scripts/refresh_corpus.py --ecosystem pypi --limit 3000
 python scripts/refresh_corpus.py --ecosystem crates --limit 1500
 ```
 
-Quarterly is plenty. Note that npm's search API is lossy — it omitted `lodash`,
-`jscodeshift`, and `react-codemod` from an 11,000-name harvest — so
+Quarterly is plenty. Note that npm's search API is lossy (it omitted `lodash`,
+`jscodeshift`, and `react-codemod` from an 11,000-name harvest), so
 `data/must_include.json` is merged in unconditionally.
 
 ## Frequently asked questions
@@ -395,7 +408,7 @@ Quarterly is plenty. Note that npm's search API is lossy — it omitted `lodash`
 ### Does pkgguard scan package contents for malware?
 
 No. pkgguard verifies the **name**, before installation. Content scanning is a
-different layer — pair it with a tool that does that. pkgguard covers the
+different layer: pair it with a tool that does that. pkgguard covers the
 pre-install window that content scanners largely do not.
 
 ### Which ecosystems are supported?
@@ -408,7 +421,7 @@ affect confidence.
 ### Does it need an API key or a paid data feed?
 
 No. All three registries expose free, unauthenticated, public JSON APIs. That is
-deliberate — it keeps the tool free to run and free to self-host.
+deliberate: it keeps the tool free to run and free to self-host.
 
 ### Can it run offline?
 
@@ -424,7 +437,7 @@ target an attacker can register tomorrow.
 
 ### Will it flag my legitimate new package?
 
-Possibly, as `REVIEW` — not `BLOCK`. A genuinely new, low-adoption package that
+Possibly, as `REVIEW`, not `BLOCK`. A genuinely new, low-adoption package that
 blends common tokens looks structurally similar to a slopsquat. That is the
 intended trade-off, not a bug. Established packages with real release history
 are not flagged.
@@ -438,7 +451,7 @@ CI/CD, internal developer platforms, hosted services, and products. Review the
 ### How is this different from Socket, Snyk, or Aikido?
 
 Those scan installed dependencies for malicious *behavior*. pkgguard analyzes
-the *name* before install, and specifically detects conflation — the blend
+the *name* before install, and specifically detects conflation, the blend
 pattern that similarity-based scanners structurally miss. Complementary, not a
 replacement.
 
@@ -450,7 +463,7 @@ Read these before relying on it.
   package** that blends common tokens. This is why it is gated behind
   reputation.
 - **The known-hallucination corpus holds only 3 entries**, because it contains
-  only names with a citable public source. Do not pad it with guesses — a false
+  only names with a citable public source. Do not pad it with guesses: a false
   entry produces a confident, wrong `BLOCK`.
 - **Download statistics are supplemental.** pypistats.org can be unavailable
   or delayed, so PyPI decisions fall back to reputation signals when needed.
@@ -464,5 +477,5 @@ commercially friendly open-source license with an explicit patent grant.
 
 ---
 
-**Built by [Blvkware](https://blvkware.dev)** — solo-built developer and
+**Built by [Blvkware](https://blvkware.dev)**: solo-built developer and
 security tooling.
