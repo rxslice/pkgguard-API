@@ -19,6 +19,8 @@ registry data.
 that blocks hallucinated, slopsquatted, and suspicious package names before
 npm, pip, uv, or cargo executes them.
 
+**How often it happens:** in [our own panel data](https://blvkware.dev/ai-package-hallucination-data/) (Oct 2026), 3.83% of 2,532 package suggestions from four model families named packages that do not exist: 0.17% on routine prompts, 5.83% on fast-moving ones. Every invented PyPI and crates.io name was free to register.
+
 **Who is it for?** Security teams, platform engineers, DevSecOps teams, and
 developers using GitHub Actions or autonomous coding agents that need
 explainable package-install decisions without replacing their package manager.
