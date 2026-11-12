@@ -33,7 +33,7 @@ Issues = "https://github.com/rxslice/pkgguard-API/issues"
 
 [project.optional-dependencies]
 api = ["fastapi>=0.110", "uvicorn[standard]>=0.29", "pydantic>=2.0"]
-dev = ["pytest>=8.0", "httpx2"]
+dev = ["pytest>=8.0", "httpx"]
 
 [project.scripts]
 pkgguard = "pkgguard.cli:main"
