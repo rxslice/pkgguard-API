@@ -34,11 +34,11 @@ pip install "git+https://github.com/rxslice/pkgguard-API.git" && pkgguard check 
 # BLOCK  react-codeshift  [npm]  risk=100
 ```
 
-> **pkgguard is not on PyPI, and the name `pkgguard` there is unclaimed.**
-> Install from this repository, as above. Do not run `pip install pkgguard`
-> against PyPI: an unclaimed name that people are told to install is exactly
-> what slopsquatting exploits, and a security tool is the last thing you want
-> to take from a stranger.
+> **pkgguard is not on PyPI.** PyPI will not accept the name, because it is
+> too close to `pkg-guard`, an unrelated project, and `pkgguard-cli` there
+> belongs to someone else too. Neither is this tool. Install from this
+> repository, as above: a security tool is the last thing you want to take
+> from a look-alike.
 
 ---
 
