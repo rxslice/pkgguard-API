@@ -30,15 +30,16 @@ analysis and malware scanners by checking package identity and reputation before
 installation, including names that are not simple misspellings.
 
 ```bash
-pip install "git+https://github.com/rxslice/pkgguard-API.git" && pkgguard check -e npm react-codeshift
+pip install blvkware-pkgguard && pkgguard check -e npm react-codeshift
 # BLOCK  react-codeshift  [npm]  risk=100
 ```
 
-> **pkgguard is not on PyPI.** PyPI will not accept the name, because it is
-> too close to `pkg-guard`, an unrelated project, and `pkgguard-cli` there
-> belongs to someone else too. Neither is this tool. Install from this
-> repository, as above: a security tool is the last thing you want to take
-> from a look-alike.
+> **On PyPI the package is `blvkware-pkgguard`.** The command it installs is
+> still `pkgguard`. PyPI would not accept the bare name because it is too close
+> to `pkg-guard`, an unrelated project, and `pkgguard-cli` there belongs to
+> someone else too. Neither is this tool: a security tool is the last thing you
+> want to take from a look-alike. Installing from this repository works as well:
+> `pip install "git+https://github.com/rxslice/pkgguard-API.git"`.
 
 ---
 
@@ -162,7 +163,7 @@ positives at the cost of recall is not an improvement. Report both or neither.
 ## Installation
 
 ```bash
-pip install "git+https://github.com/rxslice/pkgguard-API.git"
+pip install blvkware-pkgguard
 ```
 
 Or from a clone, to read the code first:
@@ -174,7 +175,7 @@ pip install .
 ```
 
 Requires Python 3.9+. No API key. No account. No proprietary data feed.
-For the HTTP API: `pip install "pkgguard[api] @ git+https://github.com/rxslice/pkgguard-API.git"`.
+For the HTTP API: `pip install "blvkware-pkgguard[api]"`.
 Pin a release with `@v0.1.0` on the end of the URL.
 
 ## Usage
@@ -278,7 +279,7 @@ For agent toolchains that expect a standard JSON-RPC tool interface, install the
 MCP entry point and expose it over stdio:
 
 ```bash
-pip install "git+https://github.com/rxslice/pkgguard-API.git"
+pip install blvkware-pkgguard
 pkgguard-mcp
 ```
 
