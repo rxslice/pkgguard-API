@@ -30,9 +30,12 @@ runs:
       uses: actions/setup-python@v5
       with:
         python-version: "3.12"
-    - name: Install pkgguard
+    - name: Install pkgguard from the action checkout
       shell: bash
-      run: python -m pip install --disable-pip-version-check "$GITHUB_ACTION_PATH/../../.."
+      run: |
+        PKGGUARD_SRC="$(cd "$GITHUB_ACTION_PATH/../../.." && pwd)"
+        echo "Installing pkgguard from $PKGGUARD_SRC"
+        python -m pip install --disable-pip-version-check "$PKGGUARD_SRC"
     - name: Authorize command
       id: authorize
       shell: bash
