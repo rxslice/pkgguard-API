@@ -57,6 +57,11 @@ class VerifyRequest(BaseModel):
         "block",
         description=f"Policy for very new packages: {', '.join(NEW_PACKAGE_POLICIES)}.",
     )
+    allow_review: bool = Field(
+        False,
+        description="Count REVIEW results as safe. Only set this after a separate human "
+                    "approval step; BLOCK is never overridden.",
+    )
 
 
 class AssessmentOut(BaseModel):
@@ -108,7 +113,7 @@ async def health() -> dict:
 
 
 @app.post("/v1/agent/authorize", response_model=AuthorizeResponse, tags=["agent"])
-async def authorize_agent_command(payload: AuthorizeRequest) -> AuthorizeResponse:
+def authorize_agent_command(payload: AuthorizeRequest) -> AuthorizeResponse:
     """Authorize an agent-generated install command without executing it."""
     try:
         decision = authorize_command(payload.command, payload.new_package_policy)
@@ -127,7 +132,7 @@ async def authorize_agent_command(payload: AuthorizeRequest) -> AuthorizeRespons
 
 
 @app.get("/v1/verify/{ecosystem}/{name:path}", response_model=AssessmentOut, tags=["verify"])
-async def verify_one(
+def verify_one(
     ecosystem: str,
     name: str,
     new_package_policy: str = Query("block", description="Policy for very new packages."),
@@ -142,7 +147,7 @@ async def verify_one(
 
 
 @app.post("/v1/verify", response_model=VerifyResponse, tags=["verify"])
-async def verify_batch(payload: VerifyRequest) -> VerifyResponse:
+def verify_batch(payload: VerifyRequest) -> VerifyResponse:
     """Verify a batch of package names. This is the endpoint agent frameworks
     and CI pipelines should call: one round trip for a whole dependency set."""
     try:
@@ -159,10 +164,14 @@ async def verify_batch(payload: VerifyRequest) -> VerifyResponse:
     review = sum(1 for r in out if r.verdict == "REVIEW")
     allowed = sum(1 for r in out if r.verdict == "ALLOW")
 
+    # Safe means every name was affirmatively allowed. A REVIEW (a registry
+    # timeout, an unmeasured package) is not a pass unless the caller says a
+    # human has approved it; a BLOCK is never overridden.
+    safe = bool(out) and blocked == 0 and (review == 0 or payload.allow_review)
     return VerifyResponse(
         results=out,
         blocked=blocked,
         review=review,
         allowed=allowed,
-        safe_to_proceed=(blocked == 0),
+        safe_to_proceed=safe,
     )

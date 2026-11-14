@@ -13,7 +13,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install pkgguard and test dependencies
-        run: pip install -e . pytest
+        run: pip install -e ".[dev,api]"
 
       - name: Run test suite
         run: python -m pytest -q

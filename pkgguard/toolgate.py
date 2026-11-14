@@ -42,7 +42,17 @@ def _is_install_command(program: str, argv: Sequence[str]) -> bool:
     if program_name in {"pip", "pip3"}:
         return first == "install"
     if program_name == "uv":
-        return first in {"install", "add", "pip"} and (len(argv) == 1 or argv[1].lower() == "install")
+        # Every uv form that adds packages to an environment goes through the
+        # gate. Forms the parser cannot read (pip sync, tool install) are then
+        # held for review by authorize_command rather than run unchecked.
+        second = str(argv[1]).lower() if len(argv) > 1 else ""
+        if first == "add":
+            return True
+        if first == "pip":
+            return second in {"install", "sync"}
+        if first == "tool":
+            return second == "install"
+        return False
     if program_name == "poetry":
         return first == "add"
     if program_name == "cargo":

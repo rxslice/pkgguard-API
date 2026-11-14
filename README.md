@@ -234,7 +234,10 @@ curl -X POST http://127.0.0.1:8000/v1/verify \
 }
 ```
 
-Agent frameworks can gate a tool call on the single `safe_to_proceed` field.
+Agent frameworks can gate a tool call on the single `safe_to_proceed` field. It is
+true only when every name is `ALLOW`. A `REVIEW` (for example a registry timeout)
+makes it false unless the request sets `"allow_review": true` after a separate human
+approval; a `BLOCK` is never overridden.
 
 ### Agent command authorization
 
