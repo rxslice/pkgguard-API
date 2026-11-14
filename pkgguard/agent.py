@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 from typing import List, Optional
 
-from .parsing import has_unsupported_flag, parse_install_command
+from .parsing import has_unsupported_flag, parse_install_operands
 from .scoring import Assessment
 from .service import verify_many
 from .scoring import NEW_PACKAGE_POLICIES
@@ -105,7 +105,16 @@ def authorize_command(
             reason="Unrecognized package-manager flags require human review.",
         )
 
-    ecosystem, packages = parse_install_command(command)
+    ecosystem, packages, unverifiable = parse_install_operands(command)
+    if unverifiable:
+        return CommandDecision(
+            command=command,
+            decision="REVIEW",
+            ecosystem=ecosystem,
+            packages=packages,
+            reason="The command installs something pkgguard cannot verify against a registry "
+                   "(" + ", ".join(unverifiable) + "); require human review.",
+        )
     if not ecosystem or not packages:
         return CommandDecision(
             command=command,
