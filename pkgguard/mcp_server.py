@@ -48,6 +48,24 @@ def _authorize_tool(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+#: MCP revisions this server speaks over stdio. initialize answers with the client's
+#: version when it is one of these, otherwise with the newest, per the lifecycle spec.
+SUPPORTED_PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
+
+_OUTPUT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "decision": {"type": "string", "enum": ["ALLOW", "REVIEW", "BLOCK"]},
+        "safe_to_execute": {"type": "boolean"},
+        "ecosystem": {"type": ["string", "null"]},
+        "packages": {"type": "array", "items": {"type": "string"}},
+        "reason": {"type": "string"},
+        "assessments": {"type": "array", "items": {"type": "object"}},
+    },
+    "required": ["decision", "safe_to_execute", "packages", "reason", "assessments"],
+}
+
+
 def _handle_request(request: Any) -> Optional[Dict[str, Any]]:
     if not isinstance(request, dict) or request.get("jsonrpc") != "2.0" or not isinstance(request.get("method"), str):
         return _rpc_response(None, error={"code": -32600, "message": "Invalid Request"})
@@ -64,10 +82,11 @@ def _handle_request(request: Any) -> Optional[Dict[str, Any]]:
         return _rpc_response(request_id, {})
 
     if method == "initialize":
+        requested = request.get("params", {}).get("protocolVersion")
         return _rpc_response(
             request_id,
             {
-                "protocolVersion": "2024-11-05",
+                "protocolVersion": requested if requested in SUPPORTED_PROTOCOL_VERSIONS else SUPPORTED_PROTOCOL_VERSIONS[0],
                 "capabilities": {"tools": {}},
                 "serverInfo": {"name": "pkgguard", "version": __version__},
             },
@@ -80,7 +99,10 @@ def _handle_request(request: Any) -> Optional[Dict[str, Any]]:
                 "tools": [
                     {
                         "name": "authorize_install_command",
+                        "title": "Authorize an install command",
                         "description": "Authorize an agent-generated install command before it reaches a package manager.",
+                        "annotations": {"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": True},
+                        "outputSchema": _OUTPUT_SCHEMA,
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -105,7 +127,7 @@ def _handle_request(request: Any) -> Optional[Dict[str, Any]]:
         if tool_name != "authorize_install_command":
             return _rpc_response(
                 request_id,
-                error={"code": -32601, "message": f"Unknown tool: {tool_name}"},
+                error={"code": -32602, "message": f"Unknown tool: {tool_name}"},
             )
         try:
             result = _authorize_tool(params.get("arguments", {}))

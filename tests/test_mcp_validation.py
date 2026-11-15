@@ -56,3 +56,29 @@ def test_explicit_boolean_preserves_review_policy(approved, monkeypatch):
         command="pip install new-package", decision="REVIEW", ecosystem="pypi", packages=["new-package"]))
     result = call({"command": "pip install new-package", "allow_review": approved})
     assert result["result"]["structuredContent"]["safe_to_execute"] is approved
+
+
+def test_initialize_negotiates_protocol_version():
+    from pkgguard.mcp_server import SUPPORTED_PROTOCOL_VERSIONS, _handle_request
+
+    for version in ("2025-11-25", "2025-06-18", "2024-11-05"):
+        reply = _handle_request({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": version}})
+        assert reply["result"]["protocolVersion"] == version
+    reply = _handle_request({"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {"protocolVersion": "1900-01-01"}})
+    assert reply["result"]["protocolVersion"] == SUPPORTED_PROTOCOL_VERSIONS[0]
+
+
+def test_tool_declares_read_only_and_output_schema():
+    from pkgguard.mcp_server import _handle_request
+
+    tool = _handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})["result"]["tools"][0]
+    assert tool["annotations"]["readOnlyHint"] is True
+    assert tool["outputSchema"]["type"] == "object"
+    assert set(tool["outputSchema"]["required"]) <= {"decision", "safe_to_execute", "packages", "reason", "assessments"}
+
+
+def test_unknown_tool_is_invalid_params():
+    from pkgguard.mcp_server import _handle_request
+
+    reply = _handle_request({"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "nope", "arguments": {}}})
+    assert reply["error"]["code"] == -32602
