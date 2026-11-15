@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import Any, Dict, List
+from typing import Any, Dict, Optional
 
 from . import __version__
 from .agent import authorize_command, decision_to_dict
@@ -24,11 +24,18 @@ def _rpc_response(request_id: Any, result: Any = None, error: Any = None) -> Dic
 
 
 def _authorize_tool(args: Dict[str, Any]) -> Dict[str, Any]:
-    command = str(args.get("command", "")).strip()
-    if not command:
-        raise ValueError("command is required")
-    allow_review = bool(args.get("allow_review", False))
-    new_package_policy = str(args.get("new_package_policy", "block"))
+    if not isinstance(args, dict):
+        raise ValueError("arguments must be an object")
+    command = args.get("command")
+    if not isinstance(command, str) or not command.strip():
+        raise ValueError("command must be a non-empty string")
+    command = command.strip()
+    allow_review = args.get("allow_review", False)
+    if not isinstance(allow_review, bool):
+        raise ValueError("allow_review must be a boolean")
+    new_package_policy = args.get("new_package_policy", "block")
+    if new_package_policy not in ("block", "review"):
+        raise ValueError("new_package_policy must be block or review")
     decision = authorize_command(command, new_package_policy)
     payload = decision_to_dict(decision, allow_review=allow_review)
     return {
@@ -41,9 +48,20 @@ def _authorize_tool(args: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _handle_request(request: Dict[str, Any]) -> Dict[str, Any]:
+def _handle_request(request: Any) -> Optional[Dict[str, Any]]:
+    if not isinstance(request, dict) or request.get("jsonrpc") != "2.0" or not isinstance(request.get("method"), str):
+        return _rpc_response(None, error={"code": -32600, "message": "Invalid Request"})
     method = request.get("method")
     request_id = request.get("id")
+    if "id" not in request:
+        return None
+    if isinstance(request_id, bool) or not isinstance(request_id, (str, int)):
+        return _rpc_response(None, error={"code": -32600, "message": "Invalid Request ID"})
+    if "params" in request and not isinstance(request["params"], dict):
+        return _rpc_response(request_id, error={"code": -32602, "message": "params must be an object"})
+
+    if method == "ping":
+        return _rpc_response(request_id, {})
 
     if method == "initialize":
         return _rpc_response(
