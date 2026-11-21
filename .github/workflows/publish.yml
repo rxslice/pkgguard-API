@@ -6,6 +6,8 @@ on:
   # A pushed version tag publishes too, so a release need not be created by hand.
   push:
     tags: ["v*"]
+  # Run by hand from the Actions tab or the API, on the version committed to main.
+  workflow_dispatch:
 
 permissions:
   contents: read
