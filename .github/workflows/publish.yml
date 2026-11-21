@@ -3,6 +3,9 @@ name: Publish package
 on:
   release:
     types: [published]
+  # A pushed version tag publishes too, so a release need not be created by hand.
+  push:
+    tags: ["v*"]
 
 permissions:
   contents: read
